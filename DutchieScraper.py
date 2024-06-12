@@ -50,8 +50,20 @@ try:
         driver.get("https://cove.backoffice.dutchie.com/products/inventory?categories=Everyday+14g+Pre-Packed+Flower%2CEveryday+14g+Pre-Packed+Shake+Flower%2CEveryday+28g+Pre-Packed+Flower%2CEveryday+3.5g+Pre-Packed")
         time.sleep(5)
 
-        protected_element = driver.find_element(By.CSS_SELECTOR, "div[data-field='quantity'] div.MuiDataGrid-cellContent")
-        print(protected_element.text)
+        # Scroll to the bottom of the page to load all elements
+        last_height = driver.execute_script("return document.body.scrollHeight")
+        while True:
+            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+            time.sleep(2)  # Wait for the page to load new elements
+            new_height = driver.execute_script("return document.body.scrollHeight")
+            if new_height == last_height:
+                break
+            last_height = new_height
+
+        # Extract the data (available quantities for set filters)
+        available_elements = driver.find_elements(By.CSS_SELECTOR, "div[data-field='quantity'] div.MuiDataGrid-cellContent")
+        available_data = [elem.text for elem in available_elements]
+        print(available_data)  # Print the extracted data
     except:
         print("Login failed or elemement not found")
 finally:
