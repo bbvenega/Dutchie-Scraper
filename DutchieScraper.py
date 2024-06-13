@@ -9,9 +9,7 @@ from selenium.webdriver.support import expected_conditions as EC
 
 #GOOGLE SHEETS IMPORTS
 import os.path
-from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
+from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 
 
@@ -34,6 +32,7 @@ class Product:
 username = "victorv1798"
 passW = "BIGSMOKE98"
 spreadSheetID = "1szv26MB-HIGeezQ_N1s9K7Cglww3VYC-QUe9GEwrO-8"
+
 
 # The following code is used to suppress the ResourceWarning that is thrown by the undetected_chromedriver package
 warnings.filterwarnings("ignore", category=ResourceWarning)
@@ -175,40 +174,35 @@ finally:
 
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 SPREADSHEET_ID = spreadSheetID
-RANGE_NAME = 'Sheet1!A1:I1'
+RANGE_NAME = 'Sheet1!A2'
+SERVICE_ACCOUNT_FILE = 'service_account.json'
 
-def authenticateGoogleSheets():
-    creds = None
+credentials = Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+service = build('sheets', 'v4', credentials=credentials)
 
-    if os.path.exists('token.json'):
-        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.regresh_token:
-            creds.refresh(Request())
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
-            creds = flow.run_local_server(port=0)
-        with open('token.json', 'w') as token:
-            token.write(creds.to_json())
-        return creds
-    
+# Prepare the data in the format required by the API
+
 def writeToGoogleSheets(data):
-    creds = authenticateGoogleSheets()
-    service = build('sheets', 'v4', credentials=creds)
-    sheet = service.spreadsheets()
+    SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
+    SPREADSHEET_ID = spreadSheetID
+    RANGE_NAME = 'Sheet1!A1'
+    SERVICE_ACCOUNT_FILE = 'service_account.json'
+
+    credentials = Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+    service = build('sheets', 'v4', credentials=credentials)
+
+    # Prepare the data in the format required by the API
+    values = [[product.rowId, product.product_name, product.package_id, product.available, product.inventory_date, product.unit_price, product.batch, product.thc, product.room] for product in data]
 
     body = {
-        'values': data
+        'values': values
     }
 
-    result = sheet.values().update(
+    # Use the Sheets API to update the sheet
+    result = service.spreadsheets().values().update(
         spreadsheetId=SPREADSHEET_ID, range=RANGE_NAME,
         valueInputOption='RAW', body=body).execute()
-    
+
     print(f"{result.get('updatedCells')} cells updated.")
 
-data = [['Row ID', 'Product Name', 'Package ID', 'Available', 'Inventory Date', 'Unit Price', 'Batch', 'THC', 'Room']]
-for product in all_products:
-    data.append([product.rowId, product.product_name, product.package_id, product.available, product.inventory_date, product.unit_price, product.batch, product.thc, product.room])
-
-writeToGoogleSheets(data)
+writeToGoogleSheets(all_products)
