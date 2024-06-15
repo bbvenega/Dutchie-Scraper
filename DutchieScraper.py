@@ -197,7 +197,9 @@ def fetch_Inventories():
 # ex: if "Liquid Gold" is in the product name, then the product is a "Liquid Gold Concentrate"
 
 def mapProducts(products):
+    counter = 0
     categorized_products = {}
+    print("Total products fetched: " + str(len(products)))
     for product in products:
         substring = product.product_name.split("-")[0].strip()
         substringCopy = substring
@@ -211,8 +213,41 @@ def mapProducts(products):
         if substring not in categorized_products:
             categorized_products[substring] = []
         categorized_products[substring].append(product)
+        counter += 1
+    print(f"Total products categorized: {counter}")
     return categorized_products
 
+# The following code is used to authenticate the user's credentials and connect to the Google Sheets API
+SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
+SPREADSHEET_ID = spreadSheetID
+SERVICE_ACCOUNT_FILE = get_service_account_file()
+credentials = Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+service = build('sheets', 'v4', credentials=credentials)
+
+
+# The following function is used to check if a sheet exists in the Google Sheet
+# If the sheet does not exist, it creates the sheet
+def checkIfSheetExists(sheetName):
+    sheets = service.spreadsheets().get(spreadsheetId=spreadSheetID).execute().get('sheets', [])
+    sheet_titles = [sheet['properties']['title'] for sheet in sheets]
+    if sheetName not in sheet_titles:
+        print(f"Sheet '{sheetName}' does not exist. Creating sheet...")
+        body = {
+            'requests': [
+                {
+                    'addSheet': {
+                        'properties': {
+                            'title': sheetName
+                        }
+                    }
+                }
+            ]
+        }
+        request = service.spreadsheets().batchUpdate(spreadsheetId=spreadSheetID, body=body)
+        response = request.execute()
+        print(f"Sheet '{sheetName}' created successfully.") 
+    else: 
+        print(f"Sheet '{sheetName}' already exists.")
 
 # This portion of the code is used to write the data to the Google Sheet
 # This function is meant to be customized due to the structure of your Google Sheet
@@ -222,18 +257,11 @@ def mapProducts(products):
 
 def writeToGoogleSheets(categoriezed_products):
 
-
-    # The following code is used to authenticate the user's credentials and connect to the Google Sheets API
-    SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
-    SPREADSHEET_ID = spreadSheetID
-    SERVICE_ACCOUNT_FILE = get_service_account_file()
-    credentials = Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
-    service = build('sheets', 'v4', credentials=credentials)
-
     # This for loop goes through each category and for each product in that category, it writes the product data to the correct category sheet in the Google Sheet
     for category, products in categoriezed_products.items():
         if category == "N/A":
             continue
+        checkIfSheetExists(category)
         RANGE_NAME = f"'{category}'!A2"
         values = [[product.product_name, product.package_id, product.available, product.inventory_date, product.batch, product.thc, product.room] for product in products]
 
