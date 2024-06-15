@@ -7,6 +7,7 @@
 import undetected_chromedriver as uc
 import time
 import warnings
+import sys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
@@ -61,6 +62,12 @@ driver = uc.Chrome(use_subprocess=True, options=chromeOptions)
 # The seen_rows set is used to keep track of the rows that have already been processed
 all_products = []
 seen_rows = set()
+
+def get_service_account_file():
+    if hasattr(sys, '_MEIPASS'):
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        return os.path.join(sys._MEIPASS, 'service_account.json')
+    return 'service_account.json'
 
 # The following function is used to login to the Dutchie Backoffice
 def login():
@@ -219,7 +226,7 @@ def writeToGoogleSheets(categoriezed_products):
     # The following code is used to authenticate the user's credentials and connect to the Google Sheets API
     SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
     SPREADSHEET_ID = spreadSheetID
-    SERVICE_ACCOUNT_FILE = ServiceAccountJSON
+    SERVICE_ACCOUNT_FILE = get_service_account_file()
     credentials = Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
     service = build('sheets', 'v4', credentials=credentials)
 
@@ -240,7 +247,7 @@ def writeToGoogleSheets(categoriezed_products):
             valueInputOption='USER_ENTERED', body=body).execute()
         
 
-        time_range = f"'{category}'!K2"
+        time_range = f"'{category}'!I2"
         current_time = time.strftime("%Y-%m-%d %H:%M:%S")
         time_body = {
             'values': [[current_time]]
