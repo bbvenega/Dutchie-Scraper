@@ -45,36 +45,36 @@ driver = uc.Chrome(use_subprocess=True, options=chromeOptions)
 all_products = []
 seen_rows = set()
 
-# The following code is used to login to the Dutchie Backoffice
-try:
-    driver.get("https://cove.backoffice.dutchie.com/home")
-    time.sleep(10)
-
-    # The following code is used to enter the username and password into the login form
-    userName = driver.find_element(By.ID, "input-input_login-email")
-    userName.send_keys(username)
-    time.sleep(5)
-
-    # The following code is used to enter the password into the login form
-    password = driver.find_element(By.ID, "input-input_login-password")
-    password.send_keys(passW)
-
-    # The following code is used to click the login button
-    login_button = WebDriverWait(driver, 20).until(
-        EC.element_to_be_clickable((By.CSS_SELECTOR, "[data-testid='auth_button_go-green']"))
-    )
-    login_button.click()
-    time.sleep(5)
-
-    try:
-        # The following code checks if the page is ready by looking for the main navigation menu
-        presElement = EC.presence_of_element_located((By.ID, 'main-navigation-menu'))
-        WebDriverWait(driver, 10).until(presElement)
-        print("Page is ready!")
-
+# The following function is used to login to the Dutchie Backoffice
+def login():
         driver.get("https://cove.backoffice.dutchie.com/products/inventory?categories=Everyday+14g+Pre-Packed+Flower%2CEveryday+14g+Pre-Packed+Shake+Flower%2CEveryday+28g+Pre-Packed+Flower%2CEveryday+3.5g+Pre-Packed+%28Promo%29+Flower%2CEveryday+3.5g+Pre-Packed+Flower%2CEveryday+7g+Shake+Pre-Packed+Flower%2CLoud+Pax+14g+Pre-Packed+Flower%2CLoud+Pax+28g+Pre-Packed+Flower%2CLoud+Pax+3.5g+Pre-Packed+Flower%2CLoud+Pax+3.5g+Flower+%28MED%29%2CLiquid+Gold+Concentrates%2CLiquid+Gold+CR+Concentrates%2CLiquid+Gold+Infused+Pre-Rolls%2CLiquid+Gold+Kief+Concentrates%2CLiquid+Gold+Kief+Hash+Concentrates%2CLiquid+Gold+Live+Disposable+1g%2CLiquid+Gold+Loaded+1g+Pre-Rolls%2CLiquid+Gold+NANO+Infused+Pre-Rolls%2CCookies+3.5g+Vendor+Pre-Packed+Flower%2CCookies+7g+Vendor+Pre-Packed+Flower%2CCookies+Bulk+Concentrates%2CCookies+1g+LR+Concentrates%2CCookies+1g+Concentrates%2CMAC+Pharms+3.5g+Vendor+Pre-Packed+Flower&sortFields=product.whseProductsDescription&sortDirections=asc&pageSize=1000")
         time.sleep(5)
 
+        # The following code is used to enter the username and password into the login form
+        userName = driver.find_element(By.ID, "input-input_login-email")
+        userName.send_keys(username)
+        time.sleep(2)
+
+        # The following code is used to enter the password into the login form
+        password = driver.find_element(By.ID, "input-input_login-password")
+        password.send_keys(passW)
+
+        # The following code is used to click the login button
+        login_button = WebDriverWait(driver, 20).until(
+            EC.element_to_be_clickable((By.CSS_SELECTOR, "[data-testid='auth_button_go-green']"))
+        )
+        login_button.click()
+        time.sleep(5)
+
+
+# The following function is used to fetch the inventory data from the Dutchie Backoffice
+def fetch_Inventories():
+    all_products = []
+    seen_rows = set()
+                
+    try:
+
+        print("Page is ready!")
         scroll_container = driver.find_element(By.CSS_SELECTOR, "div.MuiDataGrid-virtualScroller")
 
         def scroll_table(element, scroll_pause_time=1):
@@ -90,7 +90,7 @@ try:
         def fetch_and_process_rows():
             rows = driver.find_elements(By.CSS_SELECTOR, "div[role='row']")  # Find all rows in the table
             processed_products = []
-            
+                    
             for row in rows[1:]:  # Skip the first row as it is the header
                 row_id = row.get_attribute("data-rowindex")
                 print(f"Processing row_id: {row_id}")
@@ -101,6 +101,7 @@ try:
                 seen_rows.add(row_id)
                 print("Scanning row " + str(rows.index(row)) + "...")
                 product = Product()
+
                 try:
                     product.rowId = row_id
                 except:
@@ -157,24 +158,15 @@ try:
                 break
     except Exception as e:
         print(f"Exception: {e}")
-finally:
-    try:
-        time.sleep(2)  # Add a small delay before quitting
-        driver.close()
-        driver.quit()
-        print("Driver quit successfully.")
-
-        for product in all_products:
-            print(product)
-    except Exception as e:
-        print(f"Exception during driver quit: {e}")
+        
+    return all_products
 
 
 
 
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 SPREADSHEET_ID = spreadSheetID
-RANGE_NAME = 'Sheet1!A2'
+
 SERVICE_ACCOUNT_FILE = 'service_account.json'
 
 credentials = Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
@@ -185,7 +177,7 @@ service = build('sheets', 'v4', credentials=credentials)
 def writeToGoogleSheets(data):
     SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
     SPREADSHEET_ID = spreadSheetID
-    RANGE_NAME = 'Sheet1!A1'
+    RANGE_NAME = 'Sheet1!A2'
     SERVICE_ACCOUNT_FILE = 'service_account.json'
 
     credentials = Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
@@ -205,4 +197,17 @@ def writeToGoogleSheets(data):
 
     print(f"{result.get('updatedCells')} cells updated.")
 
-writeToGoogleSheets(all_products)
+
+# The user's credentials are used to login to the Dutchie Backoffice
+login()
+
+# The fetch_Inventories is repeatedly called to fetch the inventory data from the Dutchie Backoffice (in 30 second intervals) until the program is terminated
+while True:
+    products = fetch_Inventories()
+    writeToGoogleSheets(products)
+    print("Data written to Google Sheets @ " + str(time.ctime()))
+    print("Sleeping for 30 seconds...")
+    time.sleep(30)
+    driver.refresh()
+    time.sleep(5)
+    
