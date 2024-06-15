@@ -1,3 +1,9 @@
+# Description: This program is used to fetch the inventory data from the Dutchie Backoffice and write it to a Google Sheet
+# This program is currently configured to fetch very specific data (such as the product name, package ID, available quantity, inventory date, unit price, batch, THC percentage, and room) from the Dutchie Backoffice
+# In order to change the data that is fetched, you will need to modify the code in the fetch_Inventories function and ensure that your account has those values present in the Dutchie Backoffice inventory table in the proper order
+# Author: Brian Venegas 
+
+# The following imports are used to create a headless browser using the undetected_chromedriver package
 import undetected_chromedriver as uc
 import time
 import warnings
@@ -7,12 +13,13 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
 
-#GOOGLE SHEETS IMPORTS
+# The following imports are used to interact with the Google Sheets API
 import os.path
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 
 
+# The following class is used to store the data of each product that is fetched from the Dutchie Backoffice
 class Product:
     def __init__(self):
         self.product_name = None
@@ -28,25 +35,36 @@ class Product:
     def __repr__(self):
         return f"Product # {self.rowId} ({self.product_name}, {self.package_id}, {self.available}, {self.inventory_date}, {self.unit_price}, {self.batch}, {self.thc})"
 
-# SETUP: Enter your  REPLACE_USERNAMEand password for the Dutchie Backoffice
+
+# SETUP: The following variables are used to store the user's credentials, the ID of the Google Sheet, and the name of the Service Account JSON file
+# Please enter your own values for the following variables: The program will not work if you do not enter your own values.
+# The  REPLACE_USERNAMEand password are used to login to the Dutchie Backoffice]
+# The  REPLACE_SPREADSHEETIDis the ID of the Google Sheet that you want to write the data to
  REPLACE_USERNAME= ***REMOVED***
  REPLACE_PASSWORD= ***REMOVED***
- REPLACE_SPREADSHEETID= "1szv26MB-HIGeezQ_N1s9K7Cglww3VYC-QUe9GEwrO-8"
+ REPLACE_SPREADSHEETID= ***REMOVED***
+ REPLACE_SERVICE_ACCOUNT_JSON= ***REMOVED***
+
+
 
 
 # The following code is used to suppress the ResourceWarning that is thrown by the undetected_chromedriver package
 warnings.filterwarnings("ignore", category=ResourceWarning)
 
 # The following code is used to create a headless browser using the undetected_chromedriver package
+# For debugging purposes, you can set headless to False to see the browser in action
 chromeOptions = uc.ChromeOptions()
 chromeOptions.headless = True
 driver = uc.Chrome(use_subprocess=True, options=chromeOptions)
 
+# The following code is used to create an empty list to store all the products that are fetched from the Dutchie Backoffice
+# The seen_rows set is used to keep track of the rows that have already been processed
 all_products = []
 seen_rows = set()
 
 # The following function is used to login to the Dutchie Backoffice
 def login():
+        #Please enter the URL of the Dutchie Backoffice table with all of the filters you wish to have applied as well as showing all the products on one page 
         driver.get("https://cove.backoffice.dutchie.com/products/inventory?pageSize=1000&categories=Everyday+3.5g+%28Promo%29+Flower%2CEveryday+3.5g+Flower%2CEveryday+14g+Flower%2CEveryday+14g+Shake+Flower%2CEveryday+28g+Flower%2CLoud+Pax+3.5g+Flower%2CLoud+Pax+3.5g+Flower+%28MED%29%2CLoud+Pax+14g+Flower%2CLoud+Pax+28g+Flower%2CCookies+3.5g+Flower%2CCookies+7g+Flower%2CLiquid+Gold+1g+Shatter+Concentrates%2CLiquid+Gold+Concentrates%2CLiquid+Gold+LR+Concentrate&sortFields=product.whseProductsDescription&sortDirections=asc")
         time.sleep(5)
 
@@ -71,7 +89,8 @@ def login():
 def fetch_Inventories():
     all_products = []
     seen_rows = set()
-                
+
+    #The following try block attempts to fetch the inventory data from the Dutchie Backoffice by scrolling through the table         
     try:
 
         print("Page is ready!")
@@ -87,6 +106,7 @@ def fetch_Inventories():
 
         print("Attempting to scan rows...")
 
+        # The following function is used to fetch and process the rows of the table into a list of Product objects, and returns every product found on the page as a list
         def fetch_and_process_rows():
             rows = driver.find_elements(By.CSS_SELECTOR, "div[role='row']")  # Find all rows in the table
             processed_products = []
@@ -101,7 +121,9 @@ def fetch_Inventories():
                 seen_rows.add(row_id)
                 print("Scanning row " + str(rows.index(row)) + "...")
                 product = Product()
-
+                
+                #This is the point of the code in which you can modify the data that is fetched from the Dutchie Backoffice
+                #If modified, ensure to modify the Product class as well
                 try:
                     product.rowId = row_id
                 except:
@@ -145,6 +167,7 @@ def fetch_Inventories():
 
         all_products.extend(fetch_and_process_rows())
 
+        #This while loop is used to scroll through the table and fetch all the products on the page
         while True:
             previous_count = len(all_products)
             if not scroll_table(scroll_container):
@@ -162,6 +185,9 @@ def fetch_Inventories():
     return all_products
 
 
+# The following function is used to map the products to their respective categories
+# If modifying this code, you made need to hadd more precise categories to the product names
+# ex: if "Liquid Gold" is in the product name, then the product is a "Liquid Gold Concentrate"
 
 def mapProducts(products):
     categorized_products = {}
@@ -172,6 +198,8 @@ def mapProducts(products):
             substring = "Liquid Gold Concentrates"
             if "Shatter" in substringCopy:
                 substring = "Liquid Gold Shatter"
+            if "LR" in substringCopy:
+                substring = "Liquid Gold LR Concentrate"
         
         if substring not in categorized_products:
             categorized_products[substring] = []
@@ -179,38 +207,37 @@ def mapProducts(products):
     return categorized_products
 
 
-
-SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
-SPREADSHEET_ID = spreadSheetID
-
-SERVICE_ACCOUNT_FILE = 'service_account.json'
-
-credentials = Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
-service = build('sheets', 'v4', credentials=credentials)
-
-# Prepare the data in the format required by the API
+# This portion of the code is used to write the data to the Google Sheet
+# This function is meant to be customized due to the structure of your Google Sheet
+# The current code is set up to write the data to the Google Sheet in the following format:
+# Product Name | Package ID | Available | Inventory Date | Batch | THC | Room as well as the current time in the K column
+# In spereate sheets for each category of product
 
 def writeToGoogleSheets(categoriezed_products):
+
+
+    # The following code is used to authenticate the user's credentials and connect to the Google Sheets API
     SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
     SPREADSHEET_ID = spreadSheetID
-    SERVICE_ACCOUNT_FILE = 'service_account.json'
-
+    SERVICE_ACCOUNT_FILE = ServiceAccountJSON
     credentials = Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
     service = build('sheets', 'v4', credentials=credentials)
 
-    # Prepare the data in the format required by the API
+    # This for loop goes through each category and for each product in that category, it writes the product data to the correct category sheet in the Google Sheet
     for category, products in categoriezed_products.items():
+        if category == "N/A":
+            continue
         RANGE_NAME = f"'{category}'!A2"
-        values = [[product.rowId, product.product_name, product.package_id, product.available, product.inventory_date, product.unit_price, product.batch, product.thc, product.room] for product in products]
+        values = [[product.product_name, product.package_id, product.available, product.inventory_date, product.batch, product.thc, product.room] for product in products]
 
         body = {
         'values': values
         }
 
-    # Use the Sheets API to update the sheet
+
         result = service.spreadsheets().values().update(
             spreadsheetId=SPREADSHEET_ID, range=RANGE_NAME,
-            valueInputOption='RAW', body=body).execute()
+            valueInputOption='USER_ENTERED', body=body).execute()
         
 
         time_range = f"'{category}'!K2"
@@ -221,26 +248,36 @@ def writeToGoogleSheets(categoriezed_products):
 
         time_result = service.spreadsheets().values().update(
             spreadsheetId=SPREADSHEET_ID, range=time_range,
-            valueInputOption='RAW', body=time_body).execute()
+            valueInputOption='USER_ENTERED', body=time_body).execute()
 
         print(f"{result.get('updatedCells')} cells updated.")
 
 
 
 
+## MAIN PROGRAM ##
 # The user's credentials are used to login to the Dutchie Backoffice
 login()
 
 # The fetch_Inventories is repeatedly called to fetch the inventory data from the Dutchie Backoffice (in 30 second intervals) until the program is terminated
 while True:
+    # The fetch_Inventories function is called to fetch the inventory data from the Dutchie Backoffice
     products = fetch_Inventories()
     print("Data fetched from Dutchie Backoffice @ " + str(time.ctime() + "..."))
+
+    # The mapProducts function is called to map the products to their respective categories
     categorized_products = mapProducts(products)
     print("Printing products categories...")
+
+    # The categories are printed to the console
     for category in categorized_products:
         print(category)
+
+    # The writeToGoogleSheets function is called to write the data to the Google Sheet
     writeToGoogleSheets(categorized_products)
     print("Data written to Google Sheets @ " + str(time.ctime()))
+
+    # The program sleeps for 30 seconds before refreshing the Dutchie Backoffice page and fetching the inventory data again
     print("Sleeping for 30 seconds...")
     time.sleep(30)
     driver.refresh()
