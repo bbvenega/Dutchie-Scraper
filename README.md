@@ -16,9 +16,9 @@ Features Coming Soon:
 
 Fluid Row Selection:
     ~ As is, the program will read in the product properties based on how you have them set on your Dutchie Account. So, they must be in the same order as the script reads them in or they will incorrectly print to your sheet. 
-    
     ~ I plan to rework the "read_and_proccess_rows" function so that this is not an issue. 
 
+    
 GUI MENU:
     ~ A menu where the user can easily select what product properties, which categories, etc. and how they want it formatted on the google sheet. 
     ~ The main purpose is to provide a much friendlier user experience and fluidity in customization. 
