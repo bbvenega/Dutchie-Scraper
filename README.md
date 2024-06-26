@@ -1,7 +1,10 @@
 Dutchie Scraper
 
 This Python script is designed to expedite the export/import of certain products on the Dutchie inventory system.
-Disclaimer
+
+Note: This script is currently in it's early stages of rollout. Please let me know if you find any bugs or have any comments or concerns :). 
+
+**Disclaimer**
 
 In order for this program to work, the user must enter their own Dutchie  REPLACE_USERNAMEand password, Google Sheets ID, Google Sheets API Key, and service account credentials. Customize the script as indicated to match personal preferences for input scanning and output to sheets.
 
