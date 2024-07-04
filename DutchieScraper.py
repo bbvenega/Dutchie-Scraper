@@ -72,7 +72,7 @@ def get_service_account_file():
 # The following function is used to login to the Dutchie Backoffice
 def login():
         #Please enter the URL of the Dutchie Backoffice table with all of the filters you wish to have applied as well as showing all the products on one page 
-        driver.get("https://cove.backoffice.dutchie.com/products/inventory?pageSize=1000&categories=Everyday+3.5g+%28Promo%29+Flower%2CEveryday+3.5g+Flower%2CEveryday+14g+Flower%2CEveryday+14g+Shake+Flower%2CEveryday+28g+Flower%2CLoud+Pax+3.5g+Flower%2CLoud+Pax+3.5g+Flower+%28MED%29%2CLoud+Pax+14g+Flower%2CLoud+Pax+28g+Flower%2CCookies+3.5g+Flower%2CCookies+7g+Flower%2CLiquid+Gold+1g+Shatter+Concentrates%2CLiquid+Gold+Concentrates%2CLiquid+Gold+LR+Concentrate&sortFields=product.whseProductsDescription&sortDirections=asc")
+        driver.get("https://cove.backoffice.dutchie.com/products/inventory?pageSize=1000&categories=Everyday+3.5g+%28Promo%29+Flower%2CEveryday+3.5g+Flower%2CEveryday+14g+Flower%2CEveryday+14g+Shake+Flower%2CEveryday+28g+Flower%2CLoud+Pax+3.5g+Flower%2CLoud+Pax+3.5g+Flower+%28MED%29%2CLoud+Pax+14g+Flower%2CLoud+Pax+28g+Flower%2CCookies+3.5g+Flower%2CCookies+7g+Flower%2CLiquid+Gold+1g+Shatter+Concentrates%2CLiquid+Gold+Concentrates%2CLiquid+Gold+LR+Concentrate%2CLiquid+Gold+1g+Concentrates%2CClean+.5ml+Distillate+Cartridges%2CClean+1ml++Distillate+Cartridges%2CLiquid+Gold+.5g+Cartridges%2CMAC+Pharms+3.5g+Vendor+Flower%2CLiquid+Gold+1g+Kief+Flower%2CLiquid+Gold+1g+Live+Disposables%2CLiquid+Gold+1g+LR+Concentrate&sortFields=product.whseProductsDescription&sortDirections=asc")
         time.sleep(5)
 
         # The following code is used to enter the  REPLACE_USERNAMEand password into the login form
@@ -202,13 +202,32 @@ def mapProducts(products):
     print("Total products fetched: " + str(len(products)))
     for product in products:
         substring = product.product_name.split("-")[0].strip()
+
         substringCopy = substring
         if "Liquid Gold" in substring:
             substring = "Liquid Gold Concentrates"
             if "Shatter" in substringCopy:
                 substring = "Liquid Gold Shatter"
+
             if "LR" in substringCopy:
                 substring = "Liquid Gold LR Concentrate"
+
+            if "Kief" in substringCopy:
+                substring = "Liquid Gold Kief"
+            
+            if "Cart" in substringCopy:
+                substring = "Liquid Gold Cartridges"
+            
+            if "Disposable" in substringCopy:
+                substring = "Liquid Gold Disposable"
+            
+
+        if "Shake" in product.product_name:
+            substring = substring + " Shake"
+
+
+        
+
         
         if substring not in categorized_products:
             categorized_products[substring] = []
