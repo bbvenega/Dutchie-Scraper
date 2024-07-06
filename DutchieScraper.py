@@ -285,6 +285,40 @@ def checkIfSheetExists(sheetName):
     else: 
         print(f"Sheet '{sheetName}' already exists.")
 
+# The following function is used to clear the data in a sheet in the Google Sheet
+def clearSheet(sheetName):
+    request_body = {
+        'requests': [
+            {
+                'updateCells': {
+                    'range': {
+                        'sheetId': getSheetId(sheetName),
+                        "startRowIndex": 1,
+                        "startColumnIndex": 0,
+                        "endColumnIndex": 8,
+
+                    },
+                    'fields': 'userEnteredValue'
+                }
+            }
+        ]
+    }
+
+    print(f"Clearing data in sheet '{sheetName}'...")
+    response = service.spreadsheets().batchUpdate(spreadsheetId=SPREADSHEET_ID, body=request_body).execute()
+
+# The following function is used to get the ID of a sheet in the Google Sheet
+def getSheetId(sheetName):
+    spreadsheet = service.spreadsheets().get(spreadsheetId=SPREADSHEET_ID).execute()
+    sheet_id = None
+
+    for sheet in spreadsheet.get('sheets'):
+        if sheet.get('properties').get('title') == sheetName:
+            sheet_id = sheet.get('properties').get('sheetId')
+            break
+
+    return sheet_id
+
 # This portion of the code is used to write the data to the Google Sheet
 # This function is meant to be customized due to the structure of your Google Sheet
 # The current code is set up to write the data to the Google Sheet in the following format:
@@ -298,6 +332,7 @@ def writeToGoogleSheets(categoriezed_products):
         if category == "N/A":
             continue
         checkIfSheetExists(category)
+        clearSheet(category)
         RANGE_NAME = f"'{category}'!A2"
         values = [[product.product_name, product.package_id, product.available, product.inventory_date, product.batch, product.thc, product.room] for product in products]
 
