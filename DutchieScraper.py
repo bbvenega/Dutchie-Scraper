@@ -286,26 +286,37 @@ def checkIfSheetExists(sheetName):
         print(f"Sheet '{sheetName}' already exists.")
 
 # The following function is used to clear the data in a sheet in the Google Sheet
-def clearSheet(sheetName):
-    request_body = {
-        'requests': [
-            {
-                'updateCells': {
-                    'range': {
-                        'sheetId': getSheetId(sheetName),
-                        "startRowIndex": 1,
-                        "startColumnIndex": 0,
-                        "endColumnIndex": 8,
+def clearSheet(category):
+    try:
+        sheet_id = getSheetId(category)
+        if sheet_id is None:
+            print(f"Sheet ID not found for category '{category}'")
+            return
 
-                    },
-                    'fields': 'userEnteredValue'
+        request_body = {
+            "requests": [
+                {
+                    "updateCells": {
+                        "range": {
+                            "sheetId": sheet_id,
+                            "startRowIndex": 1,  # Row 2 (0-indexed, so row 1)
+                            "startColumnIndex": 0,  # Column A (0-indexed)
+                            "endColumnIndex": 8  # Column I (0-indexed, exclusive)
+                        },
+                        "fields": "userEnteredValue"
+                    }
                 }
-            }
-        ]
-    }
+            ]
+        }
 
-    print(f"Clearing data in sheet '{sheetName}'...")
-    response = service.spreadsheets().batchUpdate(spreadsheetId=SPREADSHEET_ID, body=request_body).execute()
+        response = service.spreadsheets().batchUpdate(
+            spreadsheetId=SPREADSHEET_ID,
+            body=request_body
+        ).execute()
+        print(f"Cleared data in sheet '{category}'")
+    except Exception as e:
+        print(f"Error clearing data in sheet '{category}': {e}")
+    
 
 # The following function is used to get the ID of a sheet in the Google Sheet
 def getSheetId(sheetName):
