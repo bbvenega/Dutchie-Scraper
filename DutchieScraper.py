@@ -8,11 +8,14 @@ import undetected_chromedriver as uc
 import time
 import warnings
 import sys
+from dotenv import load_dotenv
+import os
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
+load_dotenv()
 
 # The following imports are used to interact with the Google Sheets API
 import os.path
@@ -41,10 +44,11 @@ class Product:
 # Please enter your own values for the following variables: The program will not work if you do not enter your own values.
 # The  REPLACE_USERNAMEand password are used to login to the Dutchie Backoffice]
 # The  REPLACE_SPREADSHEETIDis the ID of the Google Sheet that you want to write the data to
- REPLACE_USERNAME= ***REMOVED***
- REPLACE_PASSWORD= ***REMOVED***
- REPLACE_SPREADSHEETID= ***REMOVED***
- REPLACE_SERVICE_ACCOUNT_JSON= ***REMOVED***
+ REPLACE_USERNAME= os.getenv("DUTCHIE_USERNAME")
+ REPLACE_PASSWORD= os.getenv("DUTCHIE_PASSWORD")
+ REPLACE_SPREADSHEETID= os.getenv("SPREADSHEET_ID")
+ REPLACE_SERVICE_ACCOUNT_JSON= os.getenv("SERVICE_ACCOUNT_JSON")
+FilterList = os.getenv("FILTER_LIST")
 
 
 
@@ -72,7 +76,7 @@ def get_service_account_file():
 # The following function is used to login to the Dutchie Backoffice
 def login():
         #Please enter the URL of the Dutchie Backoffice table with all of the filters you wish to have applied as well as showing all the products on one page 
-        driver.get("https://cove.backoffice.dutchie.com/products/inventory?pageSize=1000&categories=Everyday+3.5g+%28Promo%29+Flower%2CEveryday+3.5g+Flower%2CEveryday+14g+Flower%2CEveryday+14g+Shake+Flower%2CEveryday+28g+Flower%2CLoud+Pax+3.5g+Flower%2CLoud+Pax+3.5g+Flower+%28MED%29%2CLoud+Pax+14g+Flower%2CLoud+Pax+28g+Flower%2CCookies+3.5g+Flower%2CCookies+7g+Flower%2CLiquid+Gold+1g+Shatter+Concentrates%2CLiquid+Gold+Concentrates%2CLiquid+Gold+LR+Concentrate%2CLiquid+Gold+1g+Concentrates%2CClean+.5ml+Distillate+Cartridges%2CClean+1ml++Distillate+Cartridges%2CLiquid+Gold+.5g+Cartridges%2CMAC+Pharms+3.5g+Vendor+Flower%2CLiquid+Gold+1g+Kief+Flower%2CLiquid+Gold+1g+Live+Disposables%2CLiquid+Gold+1g+LR+Concentrate%2CBackpack+Boyz+3.5g++Vendor+Flower%2CLiquid+Gold+1g+Cartridges%2CMAC+Oils+1g+Glass+Cartridges&sortFields=product.whseProductsDescription&sortDirections=asc")
+        driver.get(FilterList)
         time.sleep(5)
 
         # The following code is used to enter the  REPLACE_USERNAMEand password into the login form
