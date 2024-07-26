@@ -6,7 +6,7 @@ Note: This script is currently in it's early stages of rollout. Please let me kn
 
 **Disclaimer**
 
-In order for this program to work, the user must enter their own Dutchie  REPLACE_USERNAMEand password, Google Sheets ID, Google Sheets API Key, and service account credentials. Customize the script as indicated to match personal preferences for input scanning and output to sheets.
+In order for this program to work, the user must enter their own Dutchie username and password, Google Sheets ID, Google Sheets API Key, and service account credentials. Customize the script as indicated to match personal preferences for input scanning and output to sheets.
 
 Features
     ~ Uses a headless Chrome browser to log into an authorized Dutchie account.
@@ -59,7 +59,7 @@ Setup Instructions
     cd <repository-directory>
 
     2. Add Your Credentials:
-        Place your  ENTER_SERVICE_ACCOUNT_JSON_HEREfile in the project directory.
+        Place your  REPLACE_SERVICE_ACCOUNT_JSONfile in the project directory.
         Open the script and enter your Dutchie username, password, and Google Sheets ID.
 
     3. Customize the Script:

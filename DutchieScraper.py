@@ -42,12 +42,12 @@ class Product:
 
 # SETUP: The following variables are used to store the user's credentials, the ID of the Google Sheet, and the name of the Service Account JSON file
 # Please enter your own values for the following variables: The program will not work if you do not enter your own values.
-# The  REPLACE_USERNAMEand password are used to login to the Dutchie Backoffice]
-# The  REPLACE_SPREADSHEETIDis the ID of the Google Sheet that you want to write the data to
- REPLACE_USERNAME= os.getenv("DUTCHIE_USERNAME")
- REPLACE_PASSWORD= os.getenv("DUTCHIE_PASSWORD")
- REPLACE_SPREADSHEETID= os.getenv("SPREADSHEET_ID")
- REPLACE_SERVICE_ACCOUNT_JSON= os.getenv("SERVICE_ACCOUNT_JSON")
+# The username and password are used to login to the Dutchie Backoffice]
+# The spreadSheetID is the ID of the Google Sheet that you want to write the data to
+username = os.getenv("DUTCHIE_USERNAME")
+passW = os.getenv("DUTCHIE_PASSWORD")
+spreadSheetID = os.getenv("SPREADSHEET_ID")
+ServiceAccountJSON = os.getenv("SERVICE_ACCOUNT_JSON")
 FilterList = os.getenv("FILTER_LIST")
 
 
@@ -79,7 +79,7 @@ def login():
         driver.get(FilterList)
         time.sleep(5)
 
-        # The following code is used to enter the  REPLACE_USERNAMEand password into the login form
+        # The following code is used to enter the username and password into the login form
         userName = driver.find_element(By.ID, "input-input_login-email")
         userName.send_keys(username)
         time.sleep(2)
