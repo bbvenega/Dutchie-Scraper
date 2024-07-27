@@ -2,7 +2,7 @@
 
 # Dutchie Inventory Scraper
 
-## This Python script is designed to expedite the export/import of certain products on the Dutchie inventory system.
+## This Python script automates the export and import of specific products within the Dutchie inventory system, streamlining inventory management.
 
 *Note: This script is currently in it's early stages of rollout. Please let me know if you find any bugs or have any comments or concerns :).*
 
@@ -15,7 +15,7 @@ In order for this program to work, the user must enter their own Dutchie usernam
 * Scans, categorizes, and outputs inventory products to a Google Spreadsheet.
 * Extracts details such as product name, package ID, available amount, inventory date, batch ID, THC percentage, and storage room.
 * Categorizes products based on the product name up to the hyphen and writes to the ~ corresponding tab in the Google Sheet.
-* Continuously runs every 30 seconds (customizable).
+* Continuously runs every 30 seconds (adjustable).
 
 ## Features Coming Soon 🔜
 * Fluid Row Selection
