@@ -44,11 +44,39 @@ class Product:
 # Please enter your own values for the following variables: The program will not work if you do not enter your own values.
 # The username and password are used to login to the Dutchie Backoffice]
 # The spreadSheetID is the ID of the Google Sheet that you want to write the data to
+
+
+def load_environment_variables():
+    if hasattr(sys, '_MEIPASS'):
+        # If running as a bundled executable, the .env file will be in the same directory
+        dotenv_path = os.path.join(sys._MEIPASS, '.env')
+    else:
+        # Otherwise, it will be in the current directory
+        dotenv_path = '.env'
+
+    load_dotenv(dotenv_path)
+
+def get_token_file():
+    if hasattr(sys, '_MEIPASS'):
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        return os.path.join(sys._MEIPASS, 'token.json')
+    return 'token.json'
+
+def get_service_account_file():
+    if hasattr(sys, '_MEIPASS'):
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        return os.path.join(sys._MEIPASS, 'service_account.json')
+    return 'service_account.json'
+
+
+load_environment_variables()
+
 username = os.getenv("DUTCHIE_USERNAME")
 passW = os.getenv("DUTCHIE_PASSWORD")
 spreadSheetID = os.getenv("SPREADSHEET_ID")
-ServiceAccountJSON = os.getenv("SERVICE_ACCOUNT_JSON")
+ServiceAccountJSON = get_service_account_file()
 FilterList = os.getenv("FILTER_LIST")
+BULK_FLOWER_LINK = os.getenv("BULK_FLOWER_LINK")
 
 
 
@@ -67,14 +95,35 @@ driver = uc.Chrome(use_subprocess=True, options=chromeOptions)
 all_products = []
 seen_rows = set()
 
-def get_service_account_file():
-    if hasattr(sys, '_MEIPASS'):
-        # PyInstaller creates a temp folder and stores path in _MEIPASS
-        return os.path.join(sys._MEIPASS, 'service_account.json')
-    return 'service_account.json'
+
+
+def print_header():
+        print("""
+
+
+            ██████                                                                                            
+        █     ███████                                                                         ██              
+   ██████████   ███████                  ███                ███                 ███          ████             
+  ██████████      ██████                 ███                ███                 ███                           
+ ███████           ██████         ██████ ███ ███      ███ ████████   ████████   ███ ██████   ███    ███████   
+██████     █████   ██████       ████   █████ ███      ███   ███     ████  ████  █████   ████ ███  ████    ███ 
+█████    ████████   █████      ███       ███ ███      ███   ███    ███      ███ ███      ███ ███  ███      ███
+████     ████████   ████       ███       ███ ███      ███   ███    ███          ███      ███ ███  ████████████
+████       █████   ████        ███      ████ ███      ███   ███    ███      ███ ███      ███ ███  ███         
+ ██   ███                       █████ ██████  ███████████   ███████ ████  ████  ███      ███ ███   ████  ████ 
+  █   ██████         ███          ██████ ███   ██████ ███     █████   ██████    ███      ███ ███     ██████   
+      █████████████████                                                                                       
+       ██████████████                                                                                         
+          ████████                                                                                            
+
+
+Developed by Brian Venegas
+
+""")
 
 # The following function is used to login to the Dutchie Backoffice
 def login():
+
         #Please enter the URL of the Dutchie Backoffice table with all of the filters you wish to have applied as well as showing all the products on one page 
         driver.get(FilterList)
         time.sleep(5)
@@ -97,7 +146,11 @@ def login():
 
 
 # The following function is used to fetch the inventory data from the Dutchie Backoffice
-def fetch_Inventories():
+def fetch_Inventories(bulk_flower = True):
+    if(bulk_flower):
+        driver.get(BULK_FLOWER_LINK)
+        time.sleep(5)
+    
     all_products = []
     seen_rows = set()
 
@@ -124,13 +177,16 @@ def fetch_Inventories():
                     
             for row in rows[1:]:  # Skip the first row as it is the header
                 row_id = row.get_attribute("data-rowindex")
-                print(f"Processing row_id: {row_id}")
+                # print(f"Processing row_id: {row_id}")
                 if row_id in seen_rows:
-                    print(f"Row {row_id} already processed, skipping.")
+                    # print(f"Row {row_id} already processed, skipping.")
                     continue
+                else:
+                    print(f"Processing row_id: {row_id}")
 
                 seen_rows.add(row_id)
-                print("Scanning row " + str(rows.index(row)) + "...")
+
+                # print("Scanning row " + str(rows.index(row)) + "...")
                 product = Product()
                 
                 #This is the point of the code in which you can modify the data that is fetched from the Dutchie Backoffice
@@ -190,70 +246,89 @@ def fetch_Inventories():
             if len(all_products) == previous_count:
                 print("No new rows were loaded after scrolling.")
                 break
+        
+
     except Exception as e:
         print(f"Exception: {e}")
-        
+
+
+    if(bulk_flower):
+        driver.get(FilterList)
+        time.sleep(5)
     return all_products
+
 
 
 # The following function is used to map the products to their respective categories
 # If modifying this code, you made need to hadd more precise categories to the product names
 # ex: if "Liquid Gold" is in the product name, then the product is a "Liquid Gold Concentrate"
 
-def mapProducts(products):
+def mapProducts(products, bulk_flower):
+
     counter = 0
     categorized_products = {}
     print("Total products fetched: " + str(len(products)))
-    for product in products:
-        substring = product.product_name.split("-")[0].strip()
+    if(bulk_flower == False):
+        for product in products:
+            substring = product.product_name.split("-")[0].strip()
 
-        substringCopy = substring
-        if "Liquid Gold" in substring:
-            substring = "Liquid Gold Concentrates"
-            if "Shatter" in substringCopy:
-                substring = "Liquid Gold Shatter"
+            substringCopy = substring
+            if "Liquid Gold" in substring:
+                substring = "Liquid Gold Concentrates"
+                if "Shatter" in substringCopy:
+                    substring = "Liquid Gold Shatter"
 
-            if "LR" in substringCopy:
-                substring = "Liquid Gold LR Concentrate"
+                if "LR" in substringCopy:
+                    substring = "Liquid Gold LR Concentrate"
 
-            if "Kief" in substringCopy:
-                substring = "Liquid Gold Kief"
-            
-            if "Cart" in substringCopy:
-                substring = "Liquid Gold Cartridges"
-
-                if ".5ml" in product.product_name:
-                    substring = "Liquid Gold .5ml Cartridges"
+                if "Kief" in substringCopy:
+                    substring = "Liquid Gold Kief"
                 
-                if "1ml" in product.product_name:
-                    substring = "Liquid Gold 1ml Cartridges"
-            
-            if "Disposable" in substringCopy:
-                substring = "Liquid Gold Disposable"
-            
+                if "Cart" in substringCopy:
+                    substring = "Liquid Gold Cartridges"
+
+                    if ".5ml" in product.product_name:
+                        substring = "Liquid Gold .5ml Cartridges"
+                    
+                    if "1ml" in product.product_name:
+                        substring = "Liquid Gold 1ml Cartridges"
+                
+                if "Disposable" in substringCopy:
+                    substring = "Liquid Gold Disposable"
+                
 
 
-            
-        if "Shake" in product.product_name:
-            substring = substring + " Shake"
+                
+            if "Shake" in product.product_name:
+                substring = substring + " Shake"
 
-        
-        if "Backpackboyz" in product.product_name:
-            substring = "Backpackboyz"
-            if "3.5g" in product.product_name:
-                substring = substring + " 3.5 g"
             
-        if "MAC Oils Glass" in product.product_name:
-            substring = "MAC Pharms Cartridges"
-        
-        if "Mac Oils Glass" in product.product_name:
-            substring = "MAC Pharms Cartridges"
+            if "Backpackboyz" in product.product_name:
+                substring = "Backpackboyz"
+                if "3.5g" in product.product_name:
+                    substring = substring + " 3.5 g"
+                
+            if "MAC Oils Glass" in product.product_name:
+                substring = "MAC Pharms Cartridges"
+            
+            if "Mac Oils Glass" in product.product_name:
+                substring = "MAC Pharms Cartridges"
 
-        
-        if substring not in categorized_products:
-            categorized_products[substring] = []
-        categorized_products[substring].append(product)
-        counter += 1
+            
+            if substring not in categorized_products:
+                categorized_products[substring] = []
+            categorized_products[substring].append(product)
+            counter += 1
+    else: 
+        for product in products:
+            substring = product.product_name.split("-")[0].strip()
+            if "N/A" in substring:
+                continue
+            else:
+                if "BULK FLOWER" not in categorized_products:
+                    categorized_products["BULK FLOWER"] = []
+            categorized_products["BULK FLOWER"].append(product)
+            counter += 1
     print(f"Total products categorized: {counter}")
     return categorized_products
 
@@ -373,21 +448,40 @@ def writeToGoogleSheets(categoriezed_products):
 
         print(f"{result.get('updatedCells')} cells updated.")
 
+    current_time = time.strftime("%Y-%m-%d %H:%M:%S")
+    time_body = {
+        'values': [[current_time]]
+    }
+
+    time_result = service.spreadsheets().values().update(
+    spreadsheetId=SPREADSHEET_ID, range="'PN W/ CS.'!D3",
+    valueInputOption='USER_ENTERED', body=time_body).execute()
+
 
 
 
 ## MAIN PROGRAM ##
 # The user's credentials are used to login to the Dutchie Backoffice
+print_header()
 login()
 
 # The fetch_Inventories is repeatedly called to fetch the inventory data from the Dutchie Backoffice (in 30 second intervals) until the program is terminated
 while True:
     # The fetch_Inventories function is called to fetch the inventory data from the Dutchie Backoffice
-    products = fetch_Inventories()
-    print("Data fetched from Dutchie Backoffice @ " + str(time.ctime() + "..."))
+    print("Fetching product data from Dutchie Backoffice...")
+    products = fetch_Inventories(False)
+    print("Data fetched, attempting to fetch bulk flower data...")
+    all_bulk_flower = fetch_Inventories(True)
+    print("All Data fetched from Dutchie Backoffice @ " + str(time.ctime() + "..."))
+    # all_bulk_flower = fetch_Production_Bulk_Flower()
 
     # The mapProducts function is called to map the products to their respective categories
-    categorized_products = mapProducts(products)
+    print("Mapping products to categories...")
+    
+    categorized_products = mapProducts(products, False)
+    
+    print("Mapping bulk flower to categories...")
+    categorized_flowers = mapProducts(all_bulk_flower, True)
     print("Printing products categories...")
 
     # The categories are printed to the console
@@ -396,6 +490,8 @@ while True:
 
     # The writeToGoogleSheets function is called to write the data to the Google Sheet
     writeToGoogleSheets(categorized_products)
+    writeToGoogleSheets(categorized_flowers)
+    # writeToGoogleSheets_single(all_bulk_flower)
     print("Data written to Google Sheets @ " + str(time.ctime()))
 
     # The program sleeps for 30 seconds before refreshing the Dutchie Backoffice page and fetching the inventory data again
