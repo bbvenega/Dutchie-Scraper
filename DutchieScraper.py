@@ -129,12 +129,12 @@ def login():
         time.sleep(5)
 
         # The following code is used to enter the username and password into the login form
-        userName = driver.find_element(By.ID, "input-input_login-email")
+        userName = driver.find_element(By.CSS_SELECTOR, "[data-testid='auth_input_username']")
         userName.send_keys(username)
         time.sleep(2)
 
         # The following code is used to enter the password into the login form
-        password = driver.find_element(By.ID, "input-input_login-password")
+        password = driver.find_element(By.CSS_SELECTOR, "[data-testid='auth_input_password']")
         password.send_keys(passW)
 
         # The following code is used to click the login button
@@ -271,54 +271,57 @@ def mapProducts(products, bulk_flower):
     if(bulk_flower == False):
         for product in products:
             substring = product.product_name.split("-")[0].strip()
+            if "N/A" in substring:
+                continue
+            else:
 
-            substringCopy = substring
-            if "Liquid Gold" in substring:
-                substring = "Liquid Gold Concentrates"
-                if "Shatter" in substringCopy:
-                    substring = "Liquid Gold Shatter"
+                substringCopy = substring
+                if "Liquid Gold" in substring:
+                    substring = "Liquid Gold Concentrates"
+                    if "Shatter" in substringCopy:
+                        substring = "Liquid Gold Shatter"
 
-                if "LR" in substringCopy:
-                    substring = "Liquid Gold LR Concentrate"
+                    if "LR" in substringCopy:
+                        substring = "Liquid Gold LR Concentrate"
 
-                if "Kief" in substringCopy:
-                    substring = "Liquid Gold Kief"
-                
-                if "Cart" in substringCopy:
-                    substring = "Liquid Gold Cartridges"
-
-                    if ".5ml" in product.product_name:
-                        substring = "Liquid Gold .5ml Cartridges"
+                    if "Kief" in substringCopy:
+                        substring = "Liquid Gold Kief"
                     
-                    if "1ml" in product.product_name:
-                        substring = "Liquid Gold 1ml Cartridges"
-                
-                if "Disposable" in substringCopy:
-                    substring = "Liquid Gold Disposable"
-                
+                    if "Cart" in substringCopy:
+                        substring = "Liquid Gold Cartridges"
+
+                        if ".5ml" in product.product_name:
+                            substring = "Liquid Gold .5ml Cartridges"
+                        
+                        if "1ml" in product.product_name:
+                            substring = "Liquid Gold 1ml Cartridges"
+                    
+                    if "Disposable" in substringCopy:
+                        substring = "Liquid Gold Disposable"
+                    
 
 
-                
-            if "Shake" in product.product_name:
-                substring = substring + " Shake"
+                    
+                if "Shake" in product.product_name:
+                    substring = substring + " Shake"
 
-            
-            if "Backpackboyz" in product.product_name:
-                substring = "Backpackboyz"
-                if "3.5g" in product.product_name:
-                    substring = substring + " 3.5 g"
                 
-            if "MAC Oils Glass" in product.product_name:
-                substring = "MAC Pharms Cartridges"
-            
-            if "Mac Oils Glass" in product.product_name:
-                substring = "MAC Pharms Cartridges"
+                if "Backpackboyz" in product.product_name:
+                    substring = "Backpackboyz"
+                    if "3.5g" in product.product_name:
+                        substring = substring + " 3.5 g"
+                    
+                if "MAC Oils Glass" in product.product_name:
+                    substring = "MAC Pharms Cartridges"
+                
+                if "Mac Oils Glass" in product.product_name:
+                    substring = "MAC Pharms Cartridges"
 
-            
-            if substring not in categorized_products:
-                categorized_products[substring] = []
-            categorized_products[substring].append(product)
-            counter += 1
+                
+                if substring not in categorized_products:
+                    categorized_products[substring] = []
+                categorized_products[substring].append(product)
+                counter += 1
     else: 
         for product in products:
             substring = product.product_name.split("-")[0].strip()
