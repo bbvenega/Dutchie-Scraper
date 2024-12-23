@@ -77,6 +77,9 @@ spreadSheetID = os.getenv("SPREADSHEET_ID")
 ServiceAccountJSON = get_service_account_file()
 FilterList = os.getenv("FILTER_LIST")
 BULK_FLOWER_LINK = os.getenv("BULK_FLOWER_LINK")
+FRIDGE1_LINK = os.getenv("FRIDGE1_LINK")
+FRIDGE2_LINK = os.getenv("FRIDGE2_LINK")
+
 
 
 
@@ -146,10 +149,20 @@ def login():
 
 
 # The following function is used to fetch the inventory data from the Dutchie Backoffice
-def fetch_Inventories(bulk_flower = True):
-    if(bulk_flower):
+def fetch_Inventories(room, count):
+    if(room == "bulk_flower"):
         driver.get(BULK_FLOWER_LINK)
         time.sleep(5)
+    elif(room == "fridge1"):
+        driver.get(FRIDGE1_LINK)
+        time.sleep(5)
+    elif(room == "fridge2"):
+        driver.get(FRIDGE2_LINK)
+        time.sleep(5)
+    else:
+        driver.get(FilterList)
+        time.sleep(5)
+    
     
     all_products = []
     seen_rows = set()
@@ -200,7 +213,7 @@ def fetch_Inventories(bulk_flower = True):
                 except:
                     product.product_name = "N/A"
                 try:
-                    product.package_id = row.find_element(By.CSS_SELECTOR, "div[data-colindex='2'] .MuiDataGrid-cellContent").text
+                    product.package_id = row.find_element(By.CSS_SELECTOR, "div[data-colindex='2']").text
                 except:
                     product.package_id = "N/A"
                 try:
@@ -211,24 +224,25 @@ def fetch_Inventories(bulk_flower = True):
                     product.inventory_date = row.find_element(By.CSS_SELECTOR, "div[data-colindex='4'] .MuiDataGrid-cellContent").text
                 except:
                     product.inventory_date = "N/A"
-                try:
-                    product.unit_price = row.find_element(By.CSS_SELECTOR, "div[data-colindex='5'] .MuiDataGrid-cellContent").text
-                except:
-                    product.unit_price = "N/A"
+                # try:
+                #     product.unit_price = row.find_element(By.CSS_SELECTOR, "div[data-colindex='5'] .MuiDataGrid-cellContent").text
+                # except:
+                #     product.unit_price = "N/A"
                 try:
                     product.batch = row.find_element(By.CSS_SELECTOR, "div[data-colindex='6'] .MuiDataGrid-cellContent").text
                 except:
                     product.batch = "N/A"
                 try:
-                    product.thc = row.find_element(By.CSS_SELECTOR, "div[data-colindex='7'] .MuiDataGrid-cellContent").text
+                    product.thc = row.find_element(By.CSS_SELECTOR, "div[data-colindex='5'] .MuiDataGrid-cellContent").text
                 except:
                     product.thc = "N/A"
                 try:
-                    product.room = row.find_element(By.CSS_SELECTOR, "div[data-colindex='8'] .MuiDataGrid-cellContent").text
+                    product.room = row.find_element(By.CSS_SELECTOR, "div[data-colindex='7'] .MuiDataGrid-cellContent").text
                 except:
                     product.room = "N/A"
 
                 processed_products.append(product)
+                # print(f"Adding {product.product_name}: package id: {product.package_id}, available: {product.available}, inventory date: {product.inventory_date}, unit price: {product.unit_price}, batch: {product.batch}, thc: {product.thc}, room: {product.room}")
 
             return processed_products
 
@@ -252,9 +266,26 @@ def fetch_Inventories(bulk_flower = True):
         print(f"Exception: {e}")
 
 
-    if(bulk_flower):
-        driver.get(FilterList)
-        time.sleep(5)
+    # if count == 1:
+    #     driver.get(BULK_FLOWER_LINK)
+    #     time.sleep(5)
+    #     count += 1
+    # elif count == 2:
+    #     driver.get(FRIDGE1_LINK)
+    #     time.sleep(5)
+    #     count += 1
+    # elif count == 3:
+    #     driver.get(FRIDGE2_LINK)
+    #     time.sleep(5)
+    #     count += 1
+    # elif count == 4:
+    #     driver.get(FilterList)
+    #     time.sleep(5)
+    #     count = 1
+    # else:
+    #     # Handle default case
+    #     pass
+    
     return all_products
 
 
@@ -263,18 +294,24 @@ def fetch_Inventories(bulk_flower = True):
 # If modifying this code, you made need to hadd more precise categories to the product names
 # ex: if "Liquid Gold" is in the product name, then the product is a "Liquid Gold Concentrate"
 
-def mapProducts(products, bulk_flower):
+def mapProducts(products, room):
 
     counter = 0
     categorized_products = {}
     print("Total products fetched: " + str(len(products)))
-    if(bulk_flower == False):
+    if(room == "all_products"):
         for product in products:
+            substring = product.product_name
+            # if product.product_name.startswith("S - "):  
+            #     # If the product name starts with "S - ", remove it and keep the rest
+            #     print("CURRENTLY CATEGORIZING: " + product.product_name)
+            #     substring = product.product_name.split("S - ", 1)[1].strip()
+            # else:
+            # Default case for other products: split on '-' and take the first part
             substring = product.product_name.split("-")[0].strip()
             if "N/A" in substring:
                 continue
             else:
-
                 substringCopy = substring
                 if "Liquid Gold" in substring:
                     substring = "Liquid Gold Concentrates"
@@ -318,19 +355,23 @@ def mapProducts(products, bulk_flower):
                     substring = "MAC Pharms Cartridges"
 
                 
-                if substring not in categorized_products:
-                    categorized_products[substring] = []
-                categorized_products[substring].append(product)
-                counter += 1
+            if "S - " in product.product_name:
+                print(product.product_name + " is in the category: " + substring)
+
+            if substring not in categorized_products:
+                categorized_products[substring] = []
+
+            categorized_products[substring].append(product)
+            counter += 1
     else: 
         for product in products:
             substring = product.product_name.split("-")[0].strip()
             if "N/A" in substring:
                 continue
             else:
-                if "BULK FLOWER" not in categorized_products:
-                    categorized_products["BULK FLOWER"] = []
-            categorized_products["BULK FLOWER"].append(product)
+                if room not in categorized_products:
+                    categorized_products[room] = []
+            categorized_products[room].append(product)
             counter += 1
     print(f"Total products categorized: {counter}")
     return categorized_products
@@ -418,7 +459,7 @@ def getSheetId(sheetName):
 # Product Name | Package ID | Available | Inventory Date | Batch | THC | Room as well as the current time in the K column
 # In spereate sheets for each category of product
 
-def writeToGoogleSheets(categoriezed_products):
+def writeToGoogleSheets(categoriezed_products, bulk_flower):
 
     # This for loop goes through each category and for each product in that category, it writes the product data to the correct category sheet in the Google Sheet
     for category, products in categoriezed_products.items():
@@ -427,7 +468,10 @@ def writeToGoogleSheets(categoriezed_products):
         checkIfSheetExists(category)
         clearSheet(category)
         RANGE_NAME = f"'{category}'!A2"
-        values = [[product.product_name, product.package_id, product.available, product.inventory_date, product.batch, product.thc, product.room] for product in products]
+        if(bulk_flower):
+            RANGE_NAME = f"'{category}'!A3"
+
+        values = [[product.product_name, product.package_id, product.available, product.inventory_date,product.thc, product.batch, product.room] for product in products]
 
         body = {
         'values': values
@@ -444,7 +488,7 @@ def writeToGoogleSheets(categoriezed_products):
         time_body = {
             'values': [[current_time]]
         }
-
+        
         time_result = service.spreadsheets().values().update(
             spreadsheetId=SPREADSHEET_ID, range=time_range,
             valueInputOption='USER_ENTERED', body=time_body).execute()
@@ -463,43 +507,62 @@ def writeToGoogleSheets(categoriezed_products):
 
 
 
+
 ## MAIN PROGRAM ##
 # The user's credentials are used to login to the Dutchie Backoffice
 print_header()
-login()
+try:
+    login()
 
-# The fetch_Inventories is repeatedly called to fetch the inventory data from the Dutchie Backoffice (in 30 second intervals) until the program is terminated
-while True:
-    # The fetch_Inventories function is called to fetch the inventory data from the Dutchie Backoffice
-    print("Fetching product data from Dutchie Backoffice...")
-    products = fetch_Inventories(False)
-    print("Data fetched, attempting to fetch bulk flower data...")
-    all_bulk_flower = fetch_Inventories(True)
-    print("All Data fetched from Dutchie Backoffice @ " + str(time.ctime() + "..."))
-    # all_bulk_flower = fetch_Production_Bulk_Flower()
+    # The fetch_Inventories is repeatedly called to fetch the inventory data from the Dutchie Backoffice (in 30 second intervals) until the program is terminated
+    while True:
+        count = 1
+        # The fetch_Inventories function is called to fetch the inventory data from the Dutchie Backoffice
+        print("Fetching product data from Dutchie Backoffice...")
+        products = fetch_Inventories("all_products", count)
+        print("Data fetched, attempting to fetch bulk flower data...")
+        all_bulk_flower = fetch_Inventories("bulk_flower", count)
+        print("Bulk flower data fetched, attempting to fetch fridge 1 data...")
+        all_fridge1 = fetch_Inventories("fridge1", count)
+        print("Fridge 1 data fetched, attempting to fetch fridge 2 data...")
+        all_fridge2 = fetch_Inventories("fridge2", count)
+        print("All Data fetched from Dutchie Backoffice @ " + str(time.ctime() + "..."))
+        # all_bulk_flower = fetch_Production_Bulk_Flower()
 
-    # The mapProducts function is called to map the products to their respective categories
-    print("Mapping products to categories...")
-    
-    categorized_products = mapProducts(products, False)
-    
-    print("Mapping bulk flower to categories...")
-    categorized_flowers = mapProducts(all_bulk_flower, True)
-    print("Printing products categories...")
+        # The mapProducts function is called to map the products to their respective categories
+        print("Mapping products to categories...")
+        
+        categorized_products = mapProducts(products, "all_products")
+        
+        print("Mapping bulk flower to categories...")
+        categorized_flowers = mapProducts(all_bulk_flower, "BULK FLOWER")
 
-    # The categories are printed to the console
-    for category in categorized_products:
-        print(category)
+        print("Mapping fridge 1 to categories...")
+        categorized_fridge1 = mapProducts(all_fridge1, "FRIDGE 1")
 
-    # The writeToGoogleSheets function is called to write the data to the Google Sheet
-    writeToGoogleSheets(categorized_products)
-    writeToGoogleSheets(categorized_flowers)
-    # writeToGoogleSheets_single(all_bulk_flower)
-    print("Data written to Google Sheets @ " + str(time.ctime()))
+        print("Mapping fridge 2 to categories...")
+        categorized_fridge2 = mapProducts(all_fridge2, "FRIDGE 2")
 
-    # The program sleeps for 30 seconds before refreshing the Dutchie Backoffice page and fetching the inventory data again
-    print("Sleeping for 30 seconds...")
-    time.sleep(30)
-    driver.refresh()
-    time.sleep(5)
+        print("Printing products categories...")
+
+        # The categories are printed to the console
+        for category in categorized_products:
+            print(category)
+
+        # The writeToGoogleSheets function is called to write the data to the Google Sheet
+        writeToGoogleSheets(categorized_products, False)
+        writeToGoogleSheets(categorized_flowers, True)
+        writeToGoogleSheets(categorized_fridge1, True)
+        writeToGoogleSheets(categorized_fridge2, True)
+        # writeToGoogleSheets_single(all_bulk_flower)
+        print("Data written to Google Sheets @ " + str(time.ctime()))
+
+        # The program sleeps for 30 seconds before refreshing the Dutchie Backoffice page and fetching the inventory data again
+        print("Sleeping for 60 seconds...")
+        time.sleep(60)
+        driver.refresh()
+        time.sleep(5)
+    pass
+finally:
+    driver.quit()
     
