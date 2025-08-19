@@ -1,6 +1,7 @@
 import os
 import time
 import warnings
+import math
 import pandas as pd
 import undetected_chromedriver as uc
 from dotenv import load_dotenv
@@ -9,6 +10,8 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from google.oauth2.service_account import Credentials
+from googleapiclient.discovery import build
 import tkinter as tk
 from tkinter import ttk
 from tkcalendar import DateEntry
@@ -230,6 +233,63 @@ def clean_excel(file_path):
     print(f"✅ Excel cleaned: {df.shape[0]} rows, {df.shape[1]} columns")
     return df
 
+
+# ----------------------- GOOGLE SHEETS -----------------------
+
+SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
+SERVICE_ACCOUNT_FILE = os.getenv("SERVICE_ACCOUNT_FILE", "service_account.json")
+SPREADSHEET_ID = os.getenv("CONVERSION_SPREADSHEET_ID")
+
+def upload_to_google_sheet(file_path, sheet_name="Conversion Detail Costing"):
+    """
+    Upload Excel to Google Sheets.
+    Converts datetime objects to strings and NaN to empty strings.
+    """
+    df = pd.read_excel(file_path)
+
+    credentials = Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+    service = build('sheets', 'v4', credentials=credentials)
+
+    # Convert every cell safely
+    def convert_cell(cell):
+        if isinstance(cell, datetime):
+            return cell.strftime("%Y-%m-%d %H:%M:%S")  # or "%Y-%m-%d" if you want
+        if isinstance(cell, float) and math.isnan(cell):
+            return ""  # replace NaN with empty string
+        return str(cell)
+
+    values = [[convert_cell(cell) for cell in row] for row in [df.columns.tolist()] + df.values.tolist()]
+
+    # Check if sheet exists
+    spreadsheet = service.spreadsheets().get(spreadsheetId=SPREADSHEET_ID).execute()
+    sheet_id = None
+    for sheet in spreadsheet.get('sheets', []):
+        if sheet['properties']['title'] == sheet_name:
+            sheet_id = sheet['properties']['sheetId']
+            break
+
+    if sheet_id is None:
+        print(f"Sheet '{sheet_name}' not found. Creating new sheet...")
+        body = {'requests': [{'addSheet': {'properties': {'title': sheet_name}}}]}
+        response = service.spreadsheets().batchUpdate(spreadsheetId=SPREADSHEET_ID, body=body).execute()
+        sheet_id = response['replies'][0]['addSheet']['properties']['sheetId']
+        print(f"Sheet '{sheet_name}' created with ID {sheet_id}.")
+
+    # Clear existing data
+    clear_body = {"requests": [{"updateCells": {"range": {"sheetId": sheet_id}, "fields": "userEnteredValue"}}]}
+    service.spreadsheets().batchUpdate(spreadsheetId=SPREADSHEET_ID, body=clear_body).execute()
+
+    # Upload values
+    body = {'values': values}
+    result = service.spreadsheets().values().update(
+        spreadsheetId=SPREADSHEET_ID,
+        range=f"'{sheet_name}'!A1",
+        valueInputOption='USER_ENTERED',
+        body=body
+    ).execute()
+
+    print(f"✅ Uploaded {result.get('updatedCells')} cells to '{sheet_name}' at {time.ctime()}.")
+
 # ----------------------- MAIN -----------------------
 def main():
     start_date, end_date = get_date_range_ui()
@@ -244,9 +304,8 @@ def main():
 
 
     excel_file = download_excel(download_dir)
+    upload_to_google_sheet(excel_file, sheet_name="Conversion Detail Costing")
 
-    # Placeholder: send df to Google Sheets
-    # upload_to_google_sheet(df, spreadSheetID, sheet_name="Conversion Detail Costing")
 
     input("Press Enter to close browser...")
 
