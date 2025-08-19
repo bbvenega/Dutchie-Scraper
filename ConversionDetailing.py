@@ -240,55 +240,90 @@ SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 SERVICE_ACCOUNT_FILE = os.getenv("SERVICE_ACCOUNT_FILE", "service_account.json")
 SPREADSHEET_ID = os.getenv("CONVERSION_SPREADSHEET_ID")
 
-def upload_to_google_sheet(file_path, sheet_name="Conversion Detail Costing"):
+def upload_products_to_sheets(file_path, start_date, end_date):
     """
-    Upload Excel to Google Sheets.
-    Converts datetime objects to strings and NaN to empty strings.
+    Upload Excel to Google Sheets, split by product.
+    - Skips first 4 rows and columns A-F
+    - Sorts by 'NewProduct'
+    - Creates a sheet for each product
+    - Uses batchUpdate to minimize API calls
     """
-    df = pd.read_excel(file_path)
+    df = pd.read_excel(file_path, skiprows=4)
+    df = df.iloc[:, 6:]  # columns G onward
+
+    # Ensure 'NewProduct' exists
+    if 'NewProduct' not in df.columns:
+        raise ValueError("Column 'NewProduct' not found in Excel")
+
+    # Sort by NewProduct
+    df.sort_values('NewProduct', inplace=True)
 
     credentials = Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
     service = build('sheets', 'v4', credentials=credentials)
 
-    # Convert every cell safely
+    # Helper to convert any cell to string
     def convert_cell(cell):
         if isinstance(cell, datetime):
-            return cell.strftime("%Y-%m-%d %H:%M:%S")  # or "%Y-%m-%d" if you want
+            return cell.strftime("%Y-%m-%d %H:%M:%S")
         if isinstance(cell, float) and math.isnan(cell):
-            return ""  # replace NaN with empty string
+            return ""
         return str(cell)
 
-    values = [[convert_cell(cell) for cell in row] for row in [df.columns.tolist()] + df.values.tolist()]
-
-    # Check if sheet exists
+    # Get existing sheets
     spreadsheet = service.spreadsheets().get(spreadsheetId=SPREADSHEET_ID).execute()
-    sheet_id = None
-    for sheet in spreadsheet.get('sheets', []):
-        if sheet['properties']['title'] == sheet_name:
-            sheet_id = sheet['properties']['sheetId']
-            break
+    existing_sheets = {s['properties']['title']: s['properties']['sheetId'] for s in spreadsheet.get('sheets', [])}
 
-    if sheet_id is None:
-        print(f"Sheet '{sheet_name}' not found. Creating new sheet...")
-        body = {'requests': [{'addSheet': {'properties': {'title': sheet_name}}}]}
+        # Ensure "Home" sheet exists
+    if "Home" not in existing_sheets:
+        body = {"requests": [{"addSheet": {"properties": {"title": "Home"}}}]}
         response = service.spreadsheets().batchUpdate(spreadsheetId=SPREADSHEET_ID, body=body).execute()
-        sheet_id = response['replies'][0]['addSheet']['properties']['sheetId']
-        print(f"Sheet '{sheet_name}' created with ID {sheet_id}.")
+        existing_sheets["Home"] = response['replies'][0]['addSheet']['properties']['sheetId']
+        print("Sheet 'Home' created.")
 
-    # Clear existing data
-    clear_body = {"requests": [{"updateCells": {"range": {"sheetId": sheet_id}, "fields": "userEnteredValue"}}]}
-    service.spreadsheets().batchUpdate(spreadsheetId=SPREADSHEET_ID, body=clear_body).execute()
-
-    # Upload values
-    body = {'values': values}
-    result = service.spreadsheets().values().update(
+    # Write start/end dates to "Home" sheet
+    date_values = [[start_date], [end_date]]
+    service.spreadsheets().values().update(
         spreadsheetId=SPREADSHEET_ID,
-        range=f"'{sheet_name}'!A1",
-        valueInputOption='USER_ENTERED',
-        body=body
+        range="'Home'!B1:B2",
+        valueInputOption="USER_ENTERED",
+        body={"values": date_values}
     ).execute()
+    print(f"✅ Wrote start date ({start_date}) and end date ({end_date}) to 'Home'!B1:B2")
 
-    print(f"✅ Uploaded {result.get('updatedCells')} cells to '{sheet_name}' at {time.ctime()}.")
+
+    # Determine which sheets need to be created
+    products = df['NewProduct'].unique()
+    sheets_to_create = [p for p in products if p not in existing_sheets]
+
+    # Batch create sheets if needed
+    if sheets_to_create:
+        requests = [{"addSheet": {"properties": {"title": p}}} for p in sheets_to_create]
+        response = service.spreadsheets().batchUpdate(spreadsheetId=SPREADSHEET_ID, body={"requests": requests}).execute()
+        for reply, p in zip(response['replies'], sheets_to_create):
+            sheet_id = reply['addSheet']['properties']['sheetId']
+            existing_sheets[p] = sheet_id
+            print(f"Sheet '{p}' created with ID {sheet_id}.")
+
+    # Batch clear all sheets first
+    clear_requests = [{"updateCells": {"range": {"sheetId": existing_sheets[p]}, "fields": "userEnteredValue"}} for p in products]
+    if clear_requests:
+        service.spreadsheets().batchUpdate(spreadsheetId=SPREADSHEET_ID, body={"requests": clear_requests}).execute()
+        print(f"✅ Cleared {len(clear_requests)} sheets.")
+
+    # Upload data per sheet
+    for product in products:
+        product_df = df[df['NewProduct'] == product].reset_index(drop=True)
+        values = [[convert_cell(c) for c in product_df.columns]] + [[convert_cell(c) for c in row] for row in product_df.values]
+
+        body = {"values": values}
+        result = service.spreadsheets().values().update(
+            spreadsheetId=SPREADSHEET_ID,
+            range=f"'{product}'!A1",
+            valueInputOption='USER_ENTERED',
+            body=body
+        ).execute()
+        print(f"✅ Uploaded {result.get('updatedCells')} cells to sheet '{product}'")
+
 
 # ----------------------- MAIN -----------------------
 def main():
@@ -304,7 +339,7 @@ def main():
 
 
     excel_file = download_excel(download_dir)
-    upload_to_google_sheet(excel_file, sheet_name="Conversion Detail Costing")
+    upload_products_to_sheets(excel_file, start_date, end_date)
 
 
     input("Press Enter to close browser...")
