@@ -1,111 +1,44 @@
-from httpcore import TimeoutException
-import undetected_chromedriver as uc
+import os
 import time
 import warnings
-import sys
+import pandas as pd
+import undetected_chromedriver as uc
 from dotenv import load_dotenv
-import os
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.action_chains import ActionChains
-
-
 import tkinter as tk
 from tkinter import ttk
 from tkcalendar import DateEntry
 from datetime import datetime
 
-
+# ----------------------- ENV -----------------------
 load_dotenv()
-
-# The following imports are used to interact with the Google Sheets API
-import os.path
-from google.oauth2.service_account import Credentials
-from googleapiclient.discovery import build
-
-
-# SETUP: The following variables are used to store the user's credentials, the ID of the Google Sheet, and the name of the Service Account JSON file
-# Please enter your own values for the following variables: The program will not work if you do not enter your own values.
-# The username and password are used to login to the Dutchie Backoffice]
-# The spreadSheetID is the ID of the Google Sheet that you want to write the data to
-
-
-def load_environment_variables():
-    if hasattr(sys, '_MEIPASS'):
-        # If running as a bundled executable, the .env file will be in the same directory
-        dotenv_path = os.path.join(sys._MEIPASS, '.env')
-    else:
-        # Otherwise, it will be in the current directory
-        dotenv_path = '.env'
-
-    load_dotenv(dotenv_path)
-
-def get_token_file():
-    if hasattr(sys, '_MEIPASS'):
-        # PyInstaller creates a temp folder and stores path in _MEIPASS
-        return os.path.join(sys._MEIPASS, 'token.json')
-    return 'token.json'
-
-def get_service_account_file():
-    if hasattr(sys, '_MEIPASS'):
-        # PyInstaller creates a temp folder and stores path in _MEIPASS
-        return os.path.join(sys._MEIPASS, 'service_account.json')
-    return 'service_account.json'
-
-
-load_environment_variables()
-
 username = os.getenv("DUTCHIE_USERNAME")
-passW = os.getenv("DUTCHIE_PASSWORD")
-spreadSheetID = os.getenv("SPREADSHEET_ID")
-ServiceAccountJSON = get_service_account_file()
-reports_inventory = os.getenv("REPORTS_INVENTORY")
-
-
-
-
-
-# The following code is used to suppress the ResourceWarning that is thrown by the undetected_chromedriver package
+password = os.getenv("DUTCHIE_PASSWORD")
+report_url = "https://birch.backoffice.dutchie.com/reports/inventory/reports/conversion-detail-costing-report"
+download_dir = os.path.join(os.path.expanduser("~"), "Downloads")
+# ----------------------- BROWSER -----------------------
 warnings.filterwarnings("ignore", category=ResourceWarning)
-
-# The following code is used to create a headless browser using the undetected_chromedriver package
-# For debugging purposes, you can set headless to False to see the browser in action
 options = uc.ChromeOptions()
-options.headless = False
+options.headless = False  # set True if you want headless
+options.add_argument("--disable-popup-blocking")
+options.add_experimental_option("prefs", {
+    "download.default_directory": download_dir,
+    "download.prompt_for_download": False,
+    "download.directory_upgrade": True,
+    "safebrowsing.enabled": True,
+    "credentials_enable_service": False,
+    "profile.password_manager_enabled": False,
+    "profile.default_content_setting_values.notifications": 2
+})
+
+
 driver = uc.Chrome(options=options)
 
-
-# The following code is used to create an empty list to store all the products that are fetched from the Dutchie Backoffice
-# The seen_rows set is used to keep track of the rows that have already been processed
-all_products = []
-seen_rows = set()
-
-def print_header():
-        print("""
-
-
-            ██████                                                                                            
-        █     ███████                                                                         ██              
-   ██████████   ███████                  ███                ███                 ███          ████             
-  ██████████      ██████                 ███                ███                 ███                           
- ███████           ██████         ██████ ███ ███      ███ ████████   ████████   ███ ██████   ███    ███████   
-██████     █████   ██████       ████   █████ ███      ███   ███     ████  ████  █████   ████ ███  ████    ███ 
-█████    ████████   █████      ███       ███ ███      ███   ███    ███      ███ ███      ███ ███  ███      ███
-████     ████████   ████       ███       ███ ███      ███   ███    ███          ███      ███ ███  ████████████
-████       █████   ████        ███      ████ ███      ███   ███    ███      ███ ███      ███ ███  ███         
- ██   ███                       █████ ██████  ███████████   ███████ ████  ████  ███      ███ ███   ████  ████ 
-  █   ██████         ███          ██████ ███   ██████ ███     █████   ██████    ███      ███ ███     ██████   
-      █████████████████                                                                                       
-       ██████████████                                                                                         
-          ████████                                                                                            
-
-
-Developed by Brian Venegas
-
-""")
-        
+# ----------------------- UI -----------------------
 def get_date_range_ui():
     def submit():
         nonlocal start_date, end_date
@@ -114,7 +47,7 @@ def get_date_range_ui():
         root.destroy()
 
     root = tk.Tk()
-    root.title("Dutchie Scraper - Date Range")
+    root.title("Select Date Range")
     root.geometry("350x150")
 
     tk.Label(root, text="Start Date:").grid(row=0, column=0, padx=10, pady=10, sticky="w")
@@ -133,125 +66,194 @@ def get_date_range_ui():
     start_date = end_date = None
     root.mainloop()
     return start_date, end_date
-        
+
+# ----------------------- LOGIN -----------------------
 def login():
+    driver.get(report_url)
+    time.sleep(3)
 
-        #Please enter the URL of the Dutchie Backoffice table with all of the filters you wish to have applied as well as showing all the products on one page 
-        try:
-            print(f"Accessing the URL: {reports_inventory}")
-            driver.get(reports_inventory)
-            time.sleep(5)
-        except Exception as e:
-            print(f"Error accessing the URL: {e}")
-            return
+    user_input = driver.find_element(By.CSS_SELECTOR, "[data-testid='auth_input_username']")
+    user_input.send_keys(username)
+    time.sleep(0.5)
 
-        # The following code is used to enter the username and password into the login form
-        userName = driver.find_element(By.CSS_SELECTOR, "[data-testid='auth_input_username']")
-        userName.send_keys(username)
-        time.sleep(2)
+    pass_input = driver.find_element(By.CSS_SELECTOR, "[data-testid='auth_input_password']")
+    pass_input.send_keys(password)
+    time.sleep(0.5)
 
-        # The following code is used to enter the password into the login form
-        password = driver.find_element(By.CSS_SELECTOR, "[data-testid='auth_input_password']")
-        password.send_keys(passW)
+    login_btn = WebDriverWait(driver, 20).until(
+        EC.element_to_be_clickable((By.CSS_SELECTOR, "[data-testid='auth_button_go-green']"))
+    )
+    login_btn.click()
+    time.sleep(3)
 
-        # The following code is used to click the login button
-        login_button = WebDriverWait(driver, 20).until(
-            EC.element_to_be_clickable((By.CSS_SELECTOR, "[data-testid='auth_button_go-green']"))
-        )
-        login_button.click()
-        time.sleep(5)
+# ----------------------- DATE RANGE -----------------------
+def open_date_range_menu():
+    btn = WebDriverWait(driver, 10).until(
+        EC.element_to_be_clickable((By.ID, "actions-menu-button"))
+    )
+    btn.click()
+    time.sleep(1)
 
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.action_chains import ActionChains
 
-def open_date_range_menu(driver, timeout=10):
-    """Clicks the date range button to open the calendar dropdown."""
-    try:
-        date_button = WebDriverWait(driver, timeout).until(
-            EC.element_to_be_clickable((By.ID, "actions-menu-button"))
-        )
-        date_button.click()
-        print("✅ Date range button clicked.")
-    except Exception as e:
-        print("❌ Could not click date range button:", e)
-
-
-def set_date_range(driver, start_date, end_date, timeout=10):
+def set_date_range(start_date, end_date):
     """
-    Enter start_date and end_date into Dutchie date fields.
+    Set start and end dates in the Conversion Detail Costing Report page.
     Dates should be 'YYYY-MM-DD'.
     """
-    # Convert format → MM/DD/YYYY
     start_fmt = datetime.strptime(start_date, "%Y-%m-%d").strftime("%m/%d/%Y")
     end_fmt = datetime.strptime(end_date, "%Y-%m-%d").strftime("%m/%d/%Y")
 
-    wait = WebDriverWait(driver, timeout)
-    inputs = wait.until(
-        EC.presence_of_all_elements_located((By.CSS_SELECTOR, "input[placeholder='MM/DD/YYYY']"))
+    # Wait for date inputs to be present
+    inputs = WebDriverWait(driver, 10).until(
+        EC.presence_of_all_elements_located(
+            (By.CSS_SELECTOR, "input.cTwclH.dMdWtf.MuiOutlinedInput-input[type='text']")
+        )
     )
-
     if len(inputs) < 2:
-        raise RuntimeError("❌ Could not find start & end date inputs")
+        raise RuntimeError("❌ Could not find both start and end date inputs")
 
     start_input, end_input = inputs[0], inputs[1]
 
-    # --- Start Date ---
-    start_input.click()
-    time.sleep(0.3)  # Ensure input is focused
-    start_input.send_keys(Keys.CONTROL + "a")
-    start_input.send_keys(Keys.DELETE)
-    time.sleep(0.3)  # Wait for input to clear
-    start_input.send_keys(start_fmt)
+    for input_elem, value in [(start_input, start_fmt), (end_input, end_fmt)]:
+        # Click via JS to avoid overlay issues
+        driver.execute_script("arguments[0].click();", input_elem)
+        time.sleep(0.2)
+        input_elem.send_keys(Keys.CONTROL + "a")
+        input_elem.send_keys(Keys.DELETE)
+        time.sleep(0.2)
+        input_elem.send_keys(value)
+        time.sleep(0.2)
 
-    # --- End Date ---
-    end_input.click()
-    time.sleep(0.3)  # Ensure input is focused
-    end_input.send_keys(Keys.CONTROL + "a")
-    end_input.send_keys(Keys.DELETE)
-    time.sleep(0.3)  # Wait for input to clear
-    end_input.send_keys(end_fmt)
+    # Close the calendar after entering the second date
+    title_elem = driver.find_element(By.CSS_SELECTOR, "h1.sc-cmSbgX.lfzUAs")
+    driver.execute_script("arguments[0].click();", title_elem)
+    time.sleep(0.3)
 
     print(f"✅ Date range set: {start_fmt} → {end_fmt}")
-    time.sleep(5)  # Allow time for input to register
 
 
 
-def confirm_date_range(driver):
+def confirm_date_range():
+    inputs = driver.find_elements(By.CSS_SELECTOR, "input.MuiOutlinedInput-input[type='text']")
+    if inputs:
+        inputs[-1].click()
+        time.sleep(0.2)
+    ActionChains(driver).send_keys(Keys.ESCAPE).perform()
+    time.sleep(0.5)
+
+# ----------------------- EXPORT -----------------------
+
+def run_report():
+    # Wait for buttons with class MuiButton-containedPrimary
+    buttons = WebDriverWait(driver, 10).until(
+        EC.presence_of_all_elements_located((By.CSS_SELECTOR, "button.MuiButton-containedPrimary"))
+    )
+
+    # Find the one with visible text "Run"
+    run_btn = None
+    for btn in buttons:
+        if btn.is_displayed() and btn.text.strip().lower() == "run":
+            run_btn = btn
+            break
+
+    if not run_btn:
+        raise RuntimeError("❌ Could not find visible Run button")
+
+    # Click via JS to bypass overlays
+    driver.execute_script("arguments[0].click();", run_btn)
+    print("▶️ Run button clicked via JS")
+    
+    # Optional: wait for some report-specific element to appear after running
+    time.sleep(3)
+
+
+
+
+def export_report():
+    # Click Actions menu
+    actions_btn = WebDriverWait(driver, 10).until(
+        EC.element_to_be_clickable((By.ID, "actions-menu-button"))
+    )
+    driver.execute_script("arguments[0].click();", actions_btn)
+    print("✅ Actions menu clicked")
+    time.sleep(0.3)  # let menu render
+
+    # Wait for the menu container
+    menu_container = WebDriverWait(driver, 10).until(
+        EC.visibility_of_element_located((By.CSS_SELECTOR, "ul.MuiMenu-list"))
+    )
+
+    # Find Export item
+    menu_items = menu_container.find_elements(By.CSS_SELECTOR, "li[role='menuitem']")
+    for item in menu_items:
+        if item.text.strip().lower() == "export":
+            driver.execute_script("arguments[0].click();", item)
+            print("✅ Export clicked")
+            return
+
+    raise RuntimeError("❌ Export menu item not found")
+
+
+def download_excel(download_dir):
     """
-    Sends ESC to the focused element reliably.
+    Wait for a new Excel file to appear in download_dir and return its full path.
     """
-    try:
-        # Focus the last input (end date) to ensure picker is active
-        inputs = driver.find_elements(By.CSS_SELECTOR, "input[placeholder='MM/DD/YYYY']")
-        if inputs:
-            inputs[-1].click()
-            time.sleep(0.2)
+    os.makedirs(download_dir, exist_ok=True)
+    timeout = 30  # seconds
+    elapsed = 0
+    filename = None
 
-        # Send ESC via ActionChains
-        ActionChains(driver).send_keys(Keys.ESCAPE).perform()
-        time.sleep(0.3)
+    while elapsed < timeout:
+        files = os.listdir(download_dir)
+        excel_files = [f for f in files if f.endswith(".xlsx")]
+        if excel_files:
+            # Pick the most recent file
+            excel_files.sort(key=lambda f: os.path.getmtime(os.path.join(download_dir, f)), reverse=True)
+            filename = excel_files[0]
+            break
+        time.sleep(1)
+        elapsed += 1
 
-        print("✅ Date range confirmed with ESC via automation")
-    except Exception as e:
-        print("⚠️ Could not confirm date range via automated ESC:", e)
+    if not filename:
+        raise RuntimeError("❌ Excel file not downloaded")
 
+    file_path = os.path.join(download_dir, filename)
+    print(f"✅ Excel downloaded: {file_path}")
+    return file_path
 
+def clean_excel(file_path):
+    df = pd.read_excel(file_path, skiprows=4)
+    df = df.iloc[:, 6:]
+    df.reset_index(drop=True, inplace=True)
+    print(f"✅ Excel cleaned: {df.shape[0]} rows, {df.shape[1]} columns")
+    return df
 
-
+# ----------------------- MAIN -----------------------
 def main():
-    print_header()
     start_date, end_date = get_date_range_ui()
     print(f"📅 Selected range: {start_date} → {end_date}")
 
-    try:
-        login()
-        open_date_range_menu(driver)
-        set_date_range(driver, start_date, end_date)
-        confirm_date_range(driver)
-        print("✅ Successfully set date range in Dutchie Backoffice")
-    except Exception as e:
-        print("❌ Error during login:", e)
-    finally:
-        input("Press Enter to close browser...")
-        driver.quit()
+    login()
+    set_date_range(start_date, end_date)
+    time.sleep(0.3)
+    run_report()
+    export_report()
+    time.sleep(5)
+
+
+    excel_file = download_excel(download_dir)
+
+    # Placeholder: send df to Google Sheets
+    # upload_to_google_sheet(df, spreadSheetID, sheet_name="Conversion Detail Costing")
+
+    input("Press Enter to close browser...")
+
+    if os.path.exists(excel_file):
+        os.remove(excel_file)
+        print(f"🗑️ Deleted file: {excel_file}")
+    driver.quit()
 
 if __name__ == "__main__":
     main()
